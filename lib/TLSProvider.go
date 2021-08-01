@@ -15,7 +15,8 @@ type TLSProvider struct {
 // Provide a HTTPS listener based on the underlying TLS configuration.
 func (instance *TLSProvider) CreateListener(network string, address string) (listener net.Listener, err error) {
 	config := &tls.Config{
-		ClientAuth:               tls.NoClientCert,
+		ClientAuth: tls.NoClientCert,
+		//MinVersion:               tls.VersionTLS10,
 		NextProtos:               []string{"h2", "http/1.1"},
 		GetCertificate:           instance.GetCertificate,
 		PreferServerCipherSuites: true,

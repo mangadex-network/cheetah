@@ -1,0 +1,44 @@
+# This file is a template, and might need editing before it works on your project.
+# To contribute improvements to CI/CD templates, please follow the Development guide at:
+# https://docs.gitlab.com/ee/development/cicd/templates.html
+# This specific template is located at:
+# https://gitlab.com/gitlab-org/gitlab/-/blob/master/lib/gitlab/ci/templates/Go.gitlab-ci.yml
+
+variables:
+  REPO_NAME: gitlab.com/mangadex-network/cheetah
+  LDFLAGS: "-s -w -extldflags '-static'"
+  SOURCE: "$CI_PROJECT_DIR/cli/main.go"
+
+# The problem is that to be able to use go get, one needs to put
+# the repository in the $GOPATH. So for example if your gitlab domain
+# is gitlab.com, and that your repository is namespace/project, and
+# the default GOPATH being /go, then you'd need to have your
+# repository in /go/src/gitlab.com/namespace/project
+# Thus, making a symbolic link corrects this.
+before_script:
+  - apt-get update && apt-get install -y zip file
+  - mkdir -p $GOPATH/src/$(dirname $REPO_NAME)
+  - ln -svf $CI_PROJECT_DIR $GOPATH/src/$REPO_NAME
+  - cd $GOPATH/src/$REPO_NAME
+
+stages:
+  - build
+
+all-platforms:
+  stage: build
+  image: golang:latest
+  script: |
+        for DIST in $(go tool dist list | grep -e windows -e darwin -e linux -e freebsd); do
+            OS=${DIST%/*}
+            ARCH=${DIST#*/}
+            [[ "$OS" = "windows" ]] && BIN="$DIST/cheetah.exe" || BIN="$DIST/cheetah"
+            echo "Building Binary: System=$OS, Architecture=$ARCH, Arm=$GOARM, Mips=$GOMIPS"
+            env CGO_ENABLED=0 GOOS=$OS GOARCH=$ARCH go build -ldflags="$LDFLAGS" -o "$BIN" "$SOURCE"
+            file "$BIN" | sed -E "s/BuildID=[^,]+/BuildID=***/i"
+            zip -j "cheetah-$OS-$ARCH.zip" "$BIN"
+        done
+        echo "+++ BUILD REPORT +++"
+        ls -la */*/cheetah*
+  artifacts:
+    paths:
+      - "cheetah-*.zip"
