@@ -1,6 +1,6 @@
 ## cheetah
 
-A diverse MangaDex@Home client
+A flexible MangaDex@Home client
 
 ## Quick Start
 
