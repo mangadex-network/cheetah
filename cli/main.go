@@ -2,6 +2,7 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"log"
 	mdath "mdath/lib"
 	"mdath/lib/handlers"
@@ -52,6 +53,7 @@ func run() {
 	signal.Notify(signals, os.Interrupt, syscall.SIGTERM)
 	<-signals
 	close(signals)
+	fmt.Println()
 }
 
 func startStandAlone() {
