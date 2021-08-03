@@ -138,6 +138,7 @@ func startClusterProxy() {
 	cmd.IntVar(&port, "port", 443, "The port on which the client will listen to incoming requests and serve the cached images.")
 	cmd.BoolVar(&noTokenCheck, "no-token-check", false, "Disable token verification ...")
 	cmd.StringVar(&upstreamServer, "origins", "https://uploads.mangadex.org", "Comma separated list of ...")
+	cmd.StringVar(&logfile, "log-file", "", "Destination of log output. If not provided stdout/stderr will be used.")
 	cmd.StringVar(&loglevel, "log-level", "info", "Granularity of logging [error, warn, info, verbose]")
 
 	cmd.Parse(os.Args[2:])
@@ -183,6 +184,7 @@ func startClusterCache() {
 	cmd.StringVar(&upstreamServer, "upstream", "https://uploads.mangadex.org", "...")
 	cmd.StringVar(&cacheDirectory, "cache", "./cache", "")
 	cmd.Int64Var(&cacheSize, "size", 256, "The max. size (in GB) used for cached images.")
+	cmd.StringVar(&logfile, "log-file", "", "Destination of log output. If not provided stdout/stderr will be used.")
 	cmd.StringVar(&loglevel, "log-level", "info", "Granularity of logging [error, warn, info, verbose]")
 
 	cmd.Parse(os.Args[2:])
