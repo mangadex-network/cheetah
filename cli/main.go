@@ -3,9 +3,9 @@ package main
 import (
 	"flag"
 	"fmt"
-	"log"
 	mdath "mdath/lib"
 	"mdath/lib/handlers"
+	"mdath/log"
 	"os"
 	"os/signal"
 	"runtime"
@@ -35,7 +35,7 @@ var (
 func main() {
 	if len(os.Args) < 2 {
 		// TODO: print help?
-		log.Println("[ERROR]", "Missing commandline arguments")
+		log.Error("Missing commandline arguments")
 		os.Exit(1)
 	}
 	switch os.Args[1] {
@@ -68,10 +68,13 @@ func startStandAlone() {
 
 	cmd.Parse(os.Args[1:])
 
+	// TODO: loglevel from args ...
+	log.Setup(log.VERBOSE, os.Stdout, os.Stderr)
+
 	remote := mdath.CreateRemoteController(key, ip, port, cacheSize*GigaByte, 0)
 	upstream, tls, validator, err := remote.Connect()
 	if err != nil {
-		log.Panic(err)
+		os.Exit(1)
 	}
 
 	if noTokenCheck {
@@ -82,7 +85,7 @@ func startStandAlone() {
 	server := mdath.CreateImageServer(tls, handlers.CreateFileCacheHandler(cacheDirectory, upstream, validator))
 	err = server.Start(port, runtime.NumCPU(), false)
 	if err != nil {
-		log.Panic(err)
+		os.Exit(1)
 	}
 
 	run()
@@ -109,13 +112,16 @@ func startClusterProxy() {
 
 	cmd.Parse(os.Args[2:])
 
+	// TODO: loglevel from args ...
+	log.Setup(log.VERBOSE, os.Stdout, os.Stderr)
+
 	// TODO: introduce new type for flag that parses []string
 	upstreamServers = strings.Split(upstreamServer, ",")
 
 	remote := mdath.CreateRemoteController(key, ip, port, 0*GigaByte, 0)
 	_, tls, validator, err := remote.Connect()
 	if err != nil {
-		log.Panic(err)
+		os.Exit(1)
 	}
 
 	if noTokenCheck {
@@ -126,7 +132,7 @@ func startClusterProxy() {
 	server := mdath.CreateImageServer(tls, handlers.CreateProxyCacheHandler(upstreamServers, validator))
 	err = server.Start(port, runtime.NumCPU(), false)
 	if err != nil {
-		log.Panic(err)
+		os.Exit(1)
 	}
 
 	run()
@@ -152,6 +158,9 @@ func startClusterCache() {
 
 	cmd.Parse(os.Args[2:])
 
+	// TODO: loglevel from args ...
+	log.Setup(log.VERBOSE, os.Stdout, os.Stderr)
+
 	tls := new(mdath.TLSProvider)
 	validator := new(mdath.RequestValidator)
 	validator.Update(true, "")
@@ -159,7 +168,7 @@ func startClusterCache() {
 	server := mdath.CreateImageServer(tls, handlers.CreateFileCacheHandler(cacheDirectory, &upstreamServer, validator))
 	err := server.Start(port, runtime.NumCPU(), true)
 	if err != nil {
-		log.Panic(err)
+		os.Exit(1)
 	}
 
 	run()

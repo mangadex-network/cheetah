@@ -1,7 +1,7 @@
 package mdath
 
 import (
-	"log"
+	"mdath/log"
 	"net"
 	"net/http"
 	"runtime"
@@ -31,7 +31,7 @@ func (instance *ImageServer) updateConnectionCount(conn net.Conn, state http.Con
 	if state == http.StateClosed || state == http.StateHijacked {
 		atomic.AddInt64(&instance.connections, -1)
 	}
-	log.Println("[DEBUG]", "State:", state, ", Open Connections:", atomic.LoadInt64(&instance.connections))
+	//log.Debug("State:", state, ", Open Connections:", atomic.LoadInt64(&instance.connections))
 }
 
 func (instance *ImageServer) Start(port int, workers int, nossl bool) (err error) {
@@ -58,7 +58,7 @@ func (instance *ImageServer) Start(port int, workers int, nossl bool) (err error
 		listener, err = instance.tlsProvider.CreateListener("tcp4", instance.server.Addr)
 	}
 	if err != nil {
-		log.Println("[ERROR]", "Failed to start Image Server", err)
+		log.Error("Failed to start Image Cache Server", err)
 		return
 	}
 	go func() {
@@ -66,7 +66,7 @@ func (instance *ImageServer) Start(port int, workers int, nossl bool) (err error
 	}()
 	time.Sleep(2500 * time.Millisecond)
 	if err == nil {
-		log.Println("[INFO]", "Started the Image Cache Server on", port)
+		log.Info("Started Image Cache Server on", port)
 	}
 	return
 }
@@ -77,19 +77,19 @@ func (instance *ImageServer) Stop(timeout time.Duration, interval time.Duration)
 	}
 	instance.server.SetKeepAlivesEnabled(false)
 	for remaining := timeout; remaining > 0; remaining -= interval {
-		log.Println("[INFO]", "Waiting for", instance.connections, "connection(s) before stopping the Image Cache Server in", remaining)
+		log.Info("Waiting for", instance.connections, "connection(s) before stopping the Image Cache Server in", remaining)
 		time.Sleep(interval)
 		if instance.connections == 0 {
-			log.Println("[INFO]", "No open connection(s), stopping the Image Cache Server now")
+			log.Info("No open connection(s), stopping the Image Cache Server now")
 			remaining = 0
 		}
 	}
 	err = instance.server.Close()
 	if err != nil {
-		log.Println("[ERROR]", "Failed to stop the Image Cache Server")
+		log.Error("Failed to stop the Image Cache Server")
 		return
 	}
 	instance.server = nil
-	log.Println("[INFO]", "Stopped the Image Cache Server")
+	log.Info("Stopped Image Cache Server")
 	return
 }

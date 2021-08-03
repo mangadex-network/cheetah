@@ -4,7 +4,6 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
-	"log"
 	"net/http"
 	"regexp"
 	"time"
@@ -49,17 +48,14 @@ func (instance *RequestValidator) Update(disabled bool, key string) (err error) 
 func (instance *RequestValidator) ExtractValidatedPath(request *http.Request) (path string, file string, err error) {
 	token, path, file, err := instance.verifyPath(request.URL.Path)
 	if err != nil {
-		log.Println("[DEBUG]", "Failed path verification:", err)
 		return
 	}
 	err = instance.verifyReferer(request.Referer())
 	if err != nil {
-		log.Println("[DEBUG]", "Failed referer verification:", err)
 		return
 	}
 	err = instance.verifyToken(token)
 	if err != nil {
-		log.Println("[DEBUG]", "Failed token verification:", err)
 		return
 	}
 	return
