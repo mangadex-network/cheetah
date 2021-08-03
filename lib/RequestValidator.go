@@ -9,7 +9,7 @@ import (
 	"regexp"
 	"time"
 
-	"golang.org/x/crypto/nacl/box"
+	"golang.org/x/crypto/nacl/secretbox"
 )
 
 const (
@@ -95,7 +95,7 @@ func (instance *RequestValidator) verifyToken(token string) (err error) {
 	}
 	var nonce [NonceSize]byte
 	copy(nonce[:], bytes[:NonceSize])
-	decrypted, success := box.OpenAfterPrecomputation(nil, bytes[NonceSize:], &nonce, &instance.keyBytes)
+	decrypted, success := secretbox.Open(nil, bytes[NonceSize:], &nonce, &instance.keyBytes)
 	if !success {
 		err = errors.New("decryption of token failed")
 		return
