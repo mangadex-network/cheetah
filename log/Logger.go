@@ -2,7 +2,6 @@ package log
 
 import (
 	"fmt"
-	"io"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -27,88 +26,119 @@ const (
 	ISO8601Milli = "2006-01-02T15:04:05.000"
 
 	// terminal (text color) modes
+	reset  string = "\x1B[0m"
 	red    string = "\x1B[91m"
 	yellow string = "\x1B[33m"
 	dim    string = "\x1B[2m"
-	reset  string = "\x1B[0m"
 )
 
-var mutex sync.Mutex
+var (
+	mutex sync.Mutex
 
-func log(out io.Writer, colorcode string, level string, v []interface{}) {
-	args := make([]interface{}, len(v)+3)
+	// terminal (text color) modes
+	colors = map[LogLevel]string{
+		EMERGENCY: red,
+		CRITICAL:  red,
+		ERROR:     red,
+		WARNING:   yellow,
+		NOTICE:    reset,
+		INFO:      reset,
+		VERBOSE:   dim,
+		DEBUG:     dim,
+		TRACE:     dim,
+	}
+)
+
+func log(out *os.File, colorcode string, level string, v []interface{}) {
+	mutex.Lock()
+	defer mutex.Unlock()
+	args := make([]interface{}, len(v)+2, len(v)+3)
 	args[0] = colorcode + time.Now().Format(ISO8601Milli)
 	args[1] = level
 	copy(args[2:], v)
-	args[len(args)-1] = reset
-	mutex.Lock()
-	defer mutex.Unlock()
+	if colorcode != "" {
+		args = append(args, reset)
+	}
 	fmt.Fprintln(out, args...)
 }
 
-func stacktrace(out io.Writer, level string, v []interface{}) {
+func stacktrace(out *os.File, colorcode string, level string, v []interface{}) {
 	_, file, line, ok := runtime.Caller(3)
 	if !ok {
 		file = "???"
 		line = 0
 	}
-	log(out, dim, fmt.Sprintf(level+" <%s@L%d>", filepath.Base(file), line), v)
+	log(out, colorcode, fmt.Sprintf(level+" <%s@L%d>", filepath.Base(file), line), v)
 }
 
 type Logger struct {
 	//*log.Logger
-	Level          LogLevel
-	StandardStream io.Writer
-	ErrorStream    io.Writer
+	Level                LogLevel
+	StandardStream       *os.File
+	StandardStreamColors map[LogLevel]string
+	ErrorStream          *os.File
+	ErrorStreamColors    map[LogLevel]string
 }
 
-func (instance *Logger) Setup(level LogLevel, stdout io.Writer, stderr io.Writer) {
+func (instance *Logger) Setup(level LogLevel, stdout *os.File, stderr *os.File) {
 	mutex.Lock()
 	defer mutex.Unlock()
 	instance.Level = level
 	instance.StandardStream = stdout
+	info, err := stdout.Stat()
+	if err == nil && (info.Mode()&os.ModeCharDevice) != 0 {
+		instance.StandardStreamColors = colors
+	} else {
+		instance.StandardStreamColors = map[LogLevel]string{}
+	}
 	instance.ErrorStream = stderr
+	info, err = stderr.Stat()
+	if err == nil && (info.Mode()&os.ModeCharDevice) != 0 {
+		instance.ErrorStreamColors = colors
+	} else {
+		instance.ErrorStreamColors = map[LogLevel]string{}
+	}
 }
 
 func (instance *Logger) Emergency(v ...interface{}) {
 	if instance.Level >= EMERGENCY {
-		log(os.Stderr, red, "[EMERG]  ", v)
+		log(instance.ErrorStream, instance.ErrorStreamColors[EMERGENCY], "[EMERG]  ", v)
 	}
 }
 
 func (instance *Logger) Critical(v ...interface{}) {
 	if instance.Level >= CRITICAL {
-		log(os.Stderr, red, "[CRIT]   ", v)
+		log(instance.ErrorStream, instance.ErrorStreamColors[CRITICAL], "[CRIT]   ", v)
 	}
 }
 
 func (instance *Logger) Error(v ...interface{}) {
 	if instance.Level >= ERROR {
-		log(os.Stderr, red, "[ERROR]  ", v)
+		log(instance.ErrorStream, instance.ErrorStreamColors[ERROR], "[ERROR]  ", v)
 	}
 }
 
 func (instance *Logger) Warn(v ...interface{}) {
 	if instance.Level >= WARNING {
-		log(os.Stderr, yellow, "[WARN]   ", v)
+		log(instance.ErrorStream, instance.ErrorStreamColors[WARNING], "[WARN]   ", v)
 	}
 }
 
 func (instance *Logger) Notice(v ...interface{}) {
 	if instance.Level >= NOTICE {
-		log(os.Stdout, reset, "[NOTICE] ", v)
+		log(instance.StandardStream, instance.StandardStreamColors[NOTICE], "[NOTICE] ", v)
 	}
 }
 
 func (instance *Logger) Info(v ...interface{}) {
 	if instance.Level >= INFO {
-		log(os.Stdout, reset, "[INFO]   ", v)
+		log(instance.StandardStream, instance.StandardStreamColors[INFO], "[INFO]   ", v)
 	}
 }
 
 func (instance *Logger) Verbose(v ...interface{}) {
 	if instance.Level >= VERBOSE {
-		log(os.Stdout, dim, "[VERBOSE]", v)
+		log(instance.StandardStream, instance.StandardStreamColors[VERBOSE], "[VERBOSE]", v)
 	}
 }
 
@@ -118,7 +148,7 @@ func (instance *Logger) Debug(v ...interface{}) {
 
 func (instance *Logger) debug(v []interface{}) {
 	if instance.Level >= DEBUG {
-		stacktrace(os.Stdout, "[DEBUG]  ", v)
+		stacktrace(instance.StandardStream, instance.StandardStreamColors[DEBUG], "[DEBUG]  ", v)
 	}
 }
 
@@ -128,7 +158,7 @@ func (instance *Logger) Trace(v ...interface{}) {
 
 func (instance *Logger) trace(v []interface{}) {
 	if instance.Level >= TRACE {
-		stacktrace(os.Stdout, "[TRACE]  ", v)
+		stacktrace(instance.StandardStream, instance.StandardStreamColors[TRACE], "[TRACE]  ", v)
 	}
 }
 
@@ -142,7 +172,7 @@ var current *Logger = &Logger{
 	ErrorStream:    os.Stderr,
 }
 
-func Setup(level LogLevel, stdout io.Writer, stderr io.Writer) {
+func Setup(level LogLevel, stdout *os.File, stderr *os.File) {
 	current.Setup(level, stdout, stderr)
 }
 
