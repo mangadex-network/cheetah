@@ -29,7 +29,19 @@ var (
 	upstreamServers []string
 	cacheDirectory  string
 	cacheSize       int64
-	loglevel        int
+	logfile         string
+	loglevel        string
+	loglevels       = map[string]log.LogLevel{
+		"emerg":   log.EMERGENCY,
+		"crit":    log.CRITICAL,
+		"error":   log.ERROR,
+		"warn":    log.WARNING,
+		"notice":  log.NOTICE,
+		"info":    log.INFO,
+		"verbose": log.VERBOSE,
+		"debug":   log.DEBUG,
+		"trace":   log.TRACE,
+	}
 )
 
 func main() {
@@ -56,6 +68,24 @@ func run() {
 	fmt.Println()
 }
 
+func logup() {
+	level, ok := loglevels[loglevel]
+	if !ok {
+		log.Error("Invalid option for log-level", loglevel)
+		os.Exit(1)
+	}
+	if logfile != "" {
+		file, err := os.Create(logfile)
+		if err != nil {
+			log.Error("Failed to create log-file", logfile, err)
+			os.Exit(1)
+		}
+		log.Setup(level, file, file)
+	} else {
+		log.Setup(level, os.Stdout, os.Stderr)
+	}
+}
+
 func startStandAlone() {
 	cmd := flag.NewFlagSet("", flag.ExitOnError)
 	cmd.StringVar(&key, "key", "", "Client secret required to connect to the MangaDex@Home Remote API Server.")
@@ -64,12 +94,12 @@ func startStandAlone() {
 	cmd.BoolVar(&noTokenCheck, "no-token-check", false, "Disable token verification ...")
 	cmd.StringVar(&cacheDirectory, "cache", "./cache", "Directory where images are cached.")
 	cmd.Int64Var(&cacheSize, "size", 256, "Max. cache size (in GB) which is reported to the MangaDex@Home Remote API Server (used for shard assignment).")
-	flag.IntVar(&loglevel, "loglevel", 2, "The log level ...")
+	cmd.StringVar(&logfile, "log-file", "", "Destination of log output. If not provided stdout/stderr will be used.")
+	cmd.StringVar(&loglevel, "log-level", "info", "Granularity of logging [error, warn, info, verbose]")
 
 	cmd.Parse(os.Args[1:])
 
-	// TODO: loglevel from args ...
-	log.Setup(log.VERBOSE, os.Stdout, os.Stderr)
+	logup()
 
 	remote := mdath.CreateRemoteController(key, ip, port, cacheSize*GigaByte, 0)
 	upstream, tls, validator, err := remote.Connect()
@@ -108,12 +138,11 @@ func startClusterProxy() {
 	cmd.IntVar(&port, "port", 443, "The port on which the client will listen to incoming requests and serve the cached images.")
 	cmd.BoolVar(&noTokenCheck, "no-token-check", false, "Disable token verification ...")
 	cmd.StringVar(&upstreamServer, "origins", "https://uploads.mangadex.org", "Comma separated list of ...")
-	flag.IntVar(&loglevel, "loglevel", 2, "The log level ...")
+	cmd.StringVar(&loglevel, "log-level", "info", "Granularity of logging [error, warn, info, verbose]")
 
 	cmd.Parse(os.Args[2:])
 
-	// TODO: loglevel from args ...
-	log.Setup(log.VERBOSE, os.Stdout, os.Stderr)
+	logup()
 
 	// TODO: introduce new type for flag that parses []string
 	upstreamServers = strings.Split(upstreamServer, ",")
@@ -154,12 +183,11 @@ func startClusterCache() {
 	cmd.StringVar(&upstreamServer, "upstream", "https://uploads.mangadex.org", "...")
 	cmd.StringVar(&cacheDirectory, "cache", "./cache", "")
 	cmd.Int64Var(&cacheSize, "size", 256, "The max. size (in GB) used for cached images.")
-	flag.IntVar(&loglevel, "loglevel", 2, "The log level ...")
+	cmd.StringVar(&loglevel, "log-level", "info", "Granularity of logging [error, warn, info, verbose]")
 
 	cmd.Parse(os.Args[2:])
 
-	// TODO: loglevel from args ...
-	log.Setup(log.VERBOSE, os.Stdout, os.Stderr)
+	logup()
 
 	tls := new(mdath.TLSProvider)
 	validator := new(mdath.RequestValidator)
