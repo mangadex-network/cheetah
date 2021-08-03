@@ -3,8 +3,8 @@ package handlers
 import (
 	"io"
 	"io/fs"
-	"log"
 	mdath "mdath/lib"
+	"mdath/log"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -28,25 +28,25 @@ func CreateFileCacheHandler(directory string, upstream *string, validator *mdath
 func (instance *FileCacheHandler) ServeHTTP(response http.ResponseWriter, request *http.Request) {
 	path, file, err := instance.validator.ExtractValidatedPath(request)
 	if err != nil {
-		log.Println("[VERBOSE]", "Request (Blocked):", request.RemoteAddr, "=>", request.Host+request.URL.Path)
+		log.Verbose("Request (Blocked):", request.RemoteAddr, "=>", request.Host+request.URL.Path, err)
 		response.WriteHeader(http.StatusForbidden)
 		return
 	} else {
-		log.Println("[VERBOSE]", "Request (Accepted):", request.RemoteAddr, "=>", request.Host+request.URL.Path)
+		log.Verbose("Request (Accepted):", request.RemoteAddr, "=>", request.Host+request.URL.Path)
 	}
 
 	file = filepath.Join(instance.directory, file[0:2], file[2:4], file[56:])
 	_, err = os.Stat(file)
 	if err == nil {
 		serveFileFromCache(file, response, request)
-		log.Println("[VERBOSE]", "Response (Cache HIT):", request.RemoteAddr, "<=", file)
+		log.Verbose("Response (Cache HIT):", request.RemoteAddr, "<=", file)
 	} else if os.IsNotExist(err) {
 		url := *instance.upstream + path
 		cacheFileFromUpstream(url, file, response, request)
-		log.Println("[VERBOSE]", "Response (Cache MISS):", request.RemoteAddr, "<=", url)
+		log.Verbose("Response (Cache MISS):", request.RemoteAddr, "<=", url)
 	} else {
 		response.WriteHeader(http.StatusInternalServerError)
-		log.Println("[WARN]", "Failed to determine cached image status", err)
+		log.Warn("Failed to determine cached image status", err)
 	}
 }
 
@@ -74,7 +74,7 @@ func serveFileFromCache(file string, response http.ResponseWriter, request *http
 func cacheFileFromUpstream(upstream string, file string, response http.ResponseWriter, request *http.Request) {
 	source, err := http.Get(upstream)
 	if err != nil {
-		log.Println("[WARN]", "Failed to receive image from upstream server", err)
+		log.Warn("Failed to receive image from upstream server", err)
 		response.WriteHeader(http.StatusBadGateway)
 		return
 	}
@@ -103,13 +103,13 @@ func cacheFileFromUpstream(upstream string, file string, response http.ResponseW
 func openCacheImage(file string) (filereader *os.File, fileinfo fs.FileInfo, err error) {
 	filereader, err = os.Open(file)
 	if err != nil {
-		log.Println("[WARN]", "Failed to open cached image", err)
+		log.Warn("Failed to open cached image", err)
 		return
 	}
 	fileinfo, err = filereader.Stat()
 	if err != nil {
 		filereader.Close()
-		log.Println("[WARN]", "Failed to access info of cached image", err)
+		log.Warn("Failed to access info of cached image", err)
 		return
 	}
 	return
@@ -118,12 +118,12 @@ func openCacheImage(file string) (filereader *os.File, fileinfo fs.FileInfo, err
 func createCacheImage(file string) (filewriter *os.File, err error) {
 	err = os.MkdirAll(filepath.Dir(file), 0755)
 	if err != nil {
-		log.Println("[WARN]", "Failed to create cache directory tree", err)
+		log.Warn("Failed to create cache directory tree", err)
 		return
 	}
 	filewriter, err = os.Create(file)
 	if err != nil {
-		log.Println("[WARN]", "Failed to create cached image", err)
+		log.Warn("Failed to create cached image", err)
 		return
 	}
 	return

@@ -2,8 +2,8 @@ package handlers
 
 import (
 	"io"
-	"log"
 	mdath "mdath/lib"
+	"mdath/log"
 	"net/http"
 )
 
@@ -26,18 +26,18 @@ func CreateProxyCacheHandler(origins []string, validator *mdath.RequestValidator
 func (instance *ProxyCacheHandler) ServeHTTP(destination http.ResponseWriter, request *http.Request) {
 	path, _, err := instance.validator.ExtractValidatedPath(request)
 	if err != nil {
-		log.Println("[VERBOSE]", "Request (Blocked):", request.RemoteAddr, "=>", request.Host+request.URL.Path)
+		log.Verbose("Request (Blocked):", request.RemoteAddr, "=>", request.Host+request.URL.Path, err)
 		destination.WriteHeader(http.StatusForbidden)
 		return
 	} else {
-		log.Println("[VERBOSE]", "Request (Accepted):", request.RemoteAddr, "=>", request.Host+request.URL.Path)
+		log.Verbose("Request (Accepted):", request.RemoteAddr, "=>", request.Host+request.URL.Path)
 	}
 
 	// TODO: get origin from list (random, round robin, ...)
 	url := instance.origins[0] + path
 	source, err := http.Get(url)
 	if err != nil {
-		log.Println("[WARN]", "Failed to receive image from upstream server", err)
+		log.Warn("Failed to receive image from upstream server", err)
 		destination.WriteHeader(http.StatusBadGateway)
 		return
 	}
@@ -50,5 +50,5 @@ func (instance *ProxyCacheHandler) ServeHTTP(destination http.ResponseWriter, re
 	}
 	destination.WriteHeader(source.StatusCode)
 	io.Copy(destination, source.Body)
-	log.Println("[VERBOSE]", "Response (Proxied):", request.RemoteAddr, "<=", url)
+	log.Verbose("Response (Proxied):", request.RemoteAddr, "<=", url)
 }

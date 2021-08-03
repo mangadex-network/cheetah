@@ -4,8 +4,9 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"log"
+	"mdath/log"
 	"net/http"
+	"strings"
 	"time"
 )
 
@@ -113,11 +114,13 @@ func (instance *RemoteController) ping() (err error) {
 		instance.tlsProvider.Update(data.TLS)
 	}
 	instance.requestValidator.Update(data.ExpirationTokenDisabled, data.ExpirationTokenDecryptionKey)
-	log.Println("[INFO]", "MangaDex@Home Remote API Server:")
-	log.Println("     >", "Client =", data.ClientID, ", Version =", BuildVersion, "/", data.LatestBuildVersion, ", Compromised =", data.Compromised, ", Paused =", data.Paused, ", Cert-Included =", data.TLS != nil)
-	log.Println("     >", "Validate-Token =", !data.ExpirationTokenDisabled, ", Token-Key =", data.ExpirationTokenDecryptionKey)
-	log.Println("     >", "Public-URL =", data.ClientURL)
-	log.Println("     >", "Upstream-URL =", data.UpstreamServer)
+	log.Info(strings.Join([]string{"PING MangaDex@Home Remote API Server",
+		fmt.Sprintf("  > Client:   id=%s, build=%d/%d, paused=%t, compromised=%t", data.ClientID, BuildVersion, data.LatestBuildVersion, data.Paused, data.Compromised),
+		fmt.Sprintf("  > Token:    verify=%t, key=%s", !data.ExpirationTokenDisabled, data.ExpirationTokenDecryptionKey),
+		fmt.Sprintf("  > TLS:      change=%t, created=%s", data.TLS != nil, instance.tlsProvider.info.CreationDate),
+		"  > Address:  " + data.ClientURL,
+		"  > Upstream: " + data.UpstreamServer,
+	}, "\n"))
 	return
 }
 
@@ -129,14 +132,14 @@ func (instance *RemoteController) Connect() (upstreamServer *string, tlsProvider
 	instance.config.CertificateCreationDate = ""
 	err = instance.ping()
 	if err != nil {
-		log.Println("[ERROR]", "Failed to connected to MangaDex@Home Remote API Server", err)
+		log.Error("Failed to connected to MangaDex@Home Remote API Server", err)
 		return
 	}
 	upstreamServer = &instance.upstream
 	tlsProvider = instance.tlsProvider
 	requestValidator = instance.requestValidator
 	instance.connected = true
-	log.Println("[INFO]", "Connected to MangaDex@Home Remote API Server")
+	log.Info("Connected to MangaDex@Home Remote API Server")
 	return
 }
 
@@ -150,11 +153,11 @@ func (instance *RemoteController) Disconnect() (err error) {
 	data := new(StopResponsePayload)
 	err = post("/stop", payload, data)
 	if err != nil {
-		log.Println("[ERROR]", "Failed to disconnect from MangaDex@Home Remote API Server", err)
+		log.Error("Failed to disconnect from MangaDex@Home Remote API Server", err)
 		return
 	}
 	instance.connected = false
-	log.Println("[INFO]", "Disconnect from MangaDex@Home Remote API Server")
+	log.Info("Disconnect from MangaDex@Home Remote API Server")
 	return
 }
 
